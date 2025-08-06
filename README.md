@@ -1,4 +1,4 @@
-## Nockchain RPC
+## Nockchain gRPC Service
 
 ## Requirements
 1. Synced Full Node
