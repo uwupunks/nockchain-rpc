@@ -1,5 +1,11 @@
 ## Nockchain RPC
 
+## Requirements
+1. Synced Full Node
+2. Nockchain Wallet Installed
+
+
+## Running the server
 Start the RPC server:
 
 ```
