@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package nockchain;
+
+service NockchainService {
+  rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
+}
+
+message GetBalanceRequest {
+  string pubkey = 1;
+}
+
+message GetBalanceResponse {
+  double balance = 1;
+}
