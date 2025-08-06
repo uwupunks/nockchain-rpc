@@ -1,6 +1,6 @@
-use actix_web::{post, web, App, HttpResponse, HttpServer, Responder};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use tonic::{transport::Server, Request, Response, Status};
+use nockchain::nockchain_service_server::{NockchainService, NockchainServiceServer};
+use nockchain::{GetBalanceRequest, GetBalanceResponse};
 use tokio::process::Command as TokioCommand;
 use tokio::time::{timeout, Duration};
 use env_logger;
@@ -9,35 +9,8 @@ use regex::Regex;
 use dotenvy::dotenv;
 use std::env;
 
-#[derive(Deserialize, Debug)]
-struct JsonRpcRequest {
-    jsonrpc: String,
-    id: Option<u64>,
-    method: String,
-    params: Option<Params>,
-}
-
-#[derive(Deserialize, Debug)]
-struct Params {
-    pubkey: String,
-}
-
-#[derive(Serialize)]
-struct JsonRpcResponse<T> {
-    jsonrpc: &'static str,
-    id: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<T>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<JsonRpcError>,
-}
-
-#[derive(Serialize)]
-struct JsonRpcError {
-    code: i32,
-    message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<String>,
+pub mod nockchain {
+    tonic::include_proto!("nockchain");
 }
 
 // Function to parse nockchain-wallet output and sum all assets
@@ -80,172 +53,99 @@ fn parse_nockchain_output(output: &str) -> Result<u64, String> {
     Ok(total_assets)
 }
 
-#[post("/rpc/getBalance")]
-async fn list_notes_by_pubkey(req: web::Json<JsonRpcRequest>) -> impl Responder {
-    log::info!("Received request: {:?}", req.0);
+#[derive(Debug)]
+struct NockchainServiceImpl;
 
-    if req.jsonrpc != "2.0" || req.method != "getBalance" || req.params.is_none() {
-        log::error!("Invalid request: {:?}", req.0);
-        return HttpResponse::BadRequest().json(JsonRpcResponse::<Value> {
-            jsonrpc: "2.0",
-            id: req.id,
-            result: None,
-            error: Some(JsonRpcError {
-                code: -32600,
-                message: "Invalid Request".to_string(),
-                data: None,
-            }),
-        });
-    }
+#[tonic::async_trait]
+impl NockchainService for NockchainServiceImpl {
+    async fn get_balance(
+        &self,
+        request: Request<GetBalanceRequest>,
+    ) -> Result<Response<GetBalanceResponse>, Status> {
+        let pubkey = request.into_inner().pubkey;
+        log::info!("Received GetBalance request for pubkey: {}", pubkey);
 
-    let pubkey = &req.params.as_ref().unwrap().pubkey;
-    log::info!("Executing command for pubkey: {}", pubkey);
-
-    let socket_path = match env::var("NOCKCHAIN_SOCKET") {
-        Ok(path) => path,
-        Err(e) => {
+        let socket_path = env::var("NOCKCHAIN_SOCKET").map_err(|e| {
             log::error!("Missing NOCKCHAIN_SOCKET environment variable: {}", e);
-            return HttpResponse::InternalServerError().json(JsonRpcResponse::<Value> {
-                jsonrpc: "2.0",
-                id: req.id,
-                result: None,
-                error: Some(JsonRpcError {
-                    code: -32000,
-                    message: "Server error".to_string(),
-                    data: Some(format!("Missing NOCKCHAIN_SOCKET environment variable: {}", e)),
-                }),
-            });
-        }
-    };
+            Status::internal(format!("Missing NOCKCHAIN_SOCKET environment variable: {}", e))
+        })?;
 
-    let timeout_secs = match env::var("COMMAND_TIMEOUT_SECS") {
-        Ok(secs) => match secs.parse::<u64>() {
-            Ok(val) => val,
-            Err(e) => {
+        let timeout_secs = match env::var("COMMAND_TIMEOUT_SECS") {
+            Ok(secs) => secs.parse::<u64>().map_err(|e| {
                 log::error!("Invalid COMMAND_TIMEOUT_SECS: {}", e);
-                return HttpResponse::InternalServerError().json(JsonRpcResponse::<Value> {
-                    jsonrpc: "2.0",
-                    id: req.id,
-                    result: None,
-                    error: Some(JsonRpcError {
-                        code: -32000,
-                        message: "Server error".to_string(),
-                        data: Some(format!("Invalid COMMAND_TIMEOUT_SECS: {}", e)),
-                    }),
-                });
+                Status::invalid_argument(format!("Invalid COMMAND_TIMEOUT_SECS: {}", e))
+            })?,
+            Err(_) => {
+                log::warn!("Missing COMMAND_TIMEOUT_SECS, using default: 120 seconds");
+                120
             }
-        },
-        Err(_e) => {
-            log::warn!("Missing COMMAND_TIMEOUT_SECS, using default: 120 seconds");
-            120
-        }
-    };
+        };
 
-    let output = timeout(Duration::from_secs(timeout_secs), TokioCommand::new("nockchain-wallet")
-        .env("RUST_LOG", "error")
-        .arg("--nockchain-socket")
-        .arg(&socket_path)
-        .arg("list-notes-by-pubkey")
-        .arg(pubkey)
-        .output())
-        .await;
+        let output = timeout(Duration::from_secs(timeout_secs), TokioCommand::new("nockchain-wallet")
+            .env("RUST_LOG", "error")
+            .arg("--nockchain-socket")
+            .arg(&socket_path)
+            .arg("list-notes-by-pubkey")
+            .arg(&pubkey)
+            .output())
+            .await
+            .map_err(|_| Status::deadline_exceeded("Command timed out"))?;
 
-    match output {
-        Ok(Ok(output)) => {
-            log::info!("Command executed, status: {}", output.status);
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                log::error!("Command failed: stderr={}", stderr);
-                return HttpResponse::InternalServerError().json(JsonRpcResponse::<Value> {
-                    jsonrpc: "2.0",
-                    id: req.id,
-                    result: None,
-                    error: Some(JsonRpcError {
-                        code: -32000,
-                        message: "Command execution failed".to_string(),
-                        data: Some(stderr),
-                    }),
-                });
-            }
-
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            log::debug!("Raw command output: {}", stdout);
-            match parse_nockchain_output(&stdout) {
-                Ok(total_assets) => {
-                    log::info!("Total assets: {}", total_assets);
-                    // Divide by 65536.0 to convert nicks to nocks as unrounded decimal value
-                    let total_assets = (total_assets as f64) / 65536.0;
-                    log::info!("Total assets in nocks: {}", total_assets);
-                    HttpResponse::Ok().json(JsonRpcResponse {
-                        jsonrpc: "2.0",
-                        id: req.id,
-                        result: Some(serde_json::json!(total_assets)),
-                        error: None,
-                    })
+        match output {
+            Ok(output) => {
+                log::info!("Command executed, status: {}", output.status);
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    log::error!("Command failed: stderr={}", stderr);
+                    return Err(Status::internal(format!("Command execution failed: {}", stderr)));
                 }
-                Err(error) => {
-                    log::error!("Parsing error: {}", error);
-                    HttpResponse::InternalServerError().json(JsonRpcResponse::<Value> {
-                        jsonrpc: "2.0",
-                        id: req.id,
-                        result: None,
-                        error: Some(JsonRpcError {
-                            code: -32002,
-                            message: "Parsing error".to_string(),
-                            data: Some(error),
-                        }),
-                    })
+
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                log::debug!("Raw command output: {}", stdout);
+                match parse_nockchain_output(&stdout) {
+                    Ok(total_assets) => {
+                        log::info!("Total assets: {}", total_assets);
+                        let balance = (total_assets as f64) / 65536.0;
+                        log::info!("Total assets in nocks: {}", balance);
+                        Ok(Response::new(GetBalanceResponse { balance }))
+                    }
+                    Err(error) => {
+                        log::error!("Parsing error: {}", error);
+                        Err(Status::internal(format!("Parsing error: {}", error)))
+                    }
                 }
             }
-        }
-        Ok(Err(error)) => {
-            log::error!("Command error: {}", error);
-            HttpResponse::InternalServerError().json(JsonRpcResponse::<Value> {
-                jsonrpc: "2.0",
-                id: req.id,
-                result: None,
-                error: Some(JsonRpcError {
-                    code: -32000,
-                    message: "Server error".to_string(),
-                    data: Some(error.to_string()),
-                }),
-            })
-        }
-        Err(_) => {
-            log::error!("Command timed out");
-            HttpResponse::InternalServerError().json(JsonRpcResponse::<Value> {
-                jsonrpc: "2.0",
-                id: req.id,
-                result: None,
-                error: Some(JsonRpcError {
-                    code: -32001,
-                    message: "Command timed out".to_string(),
-                    data: None,
-                }),
-            })
+            Err(error) => {
+                log::error!("Command error: {}", error);
+                Err(Status::internal(format!("Server error: {}", error)))
+            }
         }
     }
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok(); // Load .env file, ignore if missing
     env_logger::init();
+    
     let port = match env::var("PORT") {
         Ok(port) => port.parse::<u16>().map_err(|e| {
             log::error!("Invalid PORT: {}", e);
-            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid PORT: {}", e))
+            format!("Invalid PORT: {}", e)
         })?,
         Err(_) => {
             log::warn!("Missing PORT, using default: 3000");
             3000
         }
     };
-    log::info!("Starting RPC server on http://localhost:{}", port);
-    HttpServer::new(|| {
-        App::new().service(list_notes_by_pubkey)
-    })
-    .bind(("127.0.0.1", port))?
-    .run()
-    .await
+
+    let addr = format!("127.0.0.1:{}", port).parse()?;
+    log::info!("Starting gRPC server on http://{}", addr);
+    
+    Server::builder()
+        .add_service(NockchainServiceServer::new(NockchainServiceImpl))
+        .serve(addr)
+        .await?;
+    
+    Ok(())
 }
