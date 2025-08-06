@@ -21,7 +21,7 @@ cargo run
 
 ## Available Endpoints
 
-### getBalance
+### GetBalance
 
 ```
 grpcurl -plaintext -import-path protos -proto nockchain.proto \
