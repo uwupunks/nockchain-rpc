@@ -15,7 +15,7 @@ brew install grpcurl
 Start the RPC server:
 
 ```
-cargo build
+cargo build --release
 cargo run
 ```
 
@@ -34,4 +34,26 @@ grpcurl -plaintext -import-path protos -proto nockchain.proto \
 grpcurl -import-path protos -proto nockchain.proto --max-time 120  \
 -d '{"pubkey": "3XDSQxCvP3HVn1Q9geS7T1WBGqxAAJoWfEfSuhNQLhHvYVxyX5xJtKRLhbve2MUuX1LjowfCdM8iPo1sF14VV7Y4kGm1DqP1fCnKAViD1JecQukTSufVkcGVVTeHdfDvDs1u"}' \
 rpc.nocknames.com:443 nockchain.NockchainService/GetBalance
+```
+
+## Install as a Service
+
+`sudo nano /etc/systemd/system/nockchain-rpc.service`
+
+```
+[Unit]
+Description=Nockchain RPC gRPC Server
+After=network.target
+
+[Service]
+ExecStart=/home/nockchain-rpc/target/release/nockchain-rpc
+WorkingDirectory=/home/nockchain-rpc
+Environment="PATH=/home/.cargo/bin:$PATH"
+EnvironmentFile=/home/nockchain-rpc/.env
+Restart=always
+User=<YOU>
+Group=<YOUR_GROUP>
+
+[Install]
+WantedBy=multi-user.target
 ```
