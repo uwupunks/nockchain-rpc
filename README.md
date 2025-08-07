@@ -28,3 +28,10 @@ grpcurl -plaintext -import-path protos -proto nockchain.proto \
 -d '{"pubkey": "3XDSQxCvP3HVn1Q9geS7T1WBGqxAAJoWfEfSuhNQLhHvYVxyX5xJtKRLhbve2MUuX1LjowfCdM8iPo1sF14VV7Y4kGm1DqP1fCnKAViD1JecQukTSufVkcGVVTeHdfDvDs1u"}' \
 127.0.0.1:3000 nockchain.NockchainService/GetBalance
 ```
+
+#### GetBalance () 
+```
+grpcurl -import-path protos -proto nockchain.proto --max-time 120  \
+-d '{"pubkey": "3XDSQxCvP3HVn1Q9geS7T1WBGqxAAJoWfEfSuhNQLhHvYVxyX5xJtKRLhbve2MUuX1LjowfCdM8iPo1sF14VV7Y4kGm1DqP1fCnKAViD1JecQukTSufVkcGVVTeHdfDvDs1u"}' \
+rpc.nocknames.com:443 nockchain.NockchainService/GetBalance
+```
