@@ -35,7 +35,7 @@ fn parse_nockchain_output(output: &str) -> Result<u64, String> {
             continue;
         }
 
-        if let Some(captures) = re.captures(line) {
+        if let Some(captures) = re.captures(line.to_lowercase().as_str()) {
             if let Some(asset_str) = captures.get(1) {
                 let assets: u64 = asset_str.as_str().parse().map_err(|e| format!("Failed to parse assets: {}", e))?;
                 log::info!("Found assets: {}", assets);
@@ -46,10 +46,6 @@ fn parse_nockchain_output(output: &str) -> Result<u64, String> {
     }
 
     log::info!("Total assets summed: {}, Number of assets found: {}", total_assets, asset_count);
-    if asset_count < 9 {
-        log::warn!("Expected 9 assets, found only {}", asset_count);
-        return Err(format!("Incomplete output: processed {} assets, expected 9", asset_count));
-    }
     Ok(total_assets)
 }
 
