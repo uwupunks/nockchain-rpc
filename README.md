@@ -21,7 +21,7 @@ cargo run
 
 ## Available Endpoints
 
-### GetBalance
+### GetBalance (localhost)
 
 ```
 grpcurl -plaintext -import-path protos -proto nockchain.proto \
@@ -29,7 +29,7 @@ grpcurl -plaintext -import-path protos -proto nockchain.proto \
 127.0.0.1:3000 nockchain.NockchainService/GetBalance
 ```
 
-#### GetBalance () 
+### GetBalance (rpc.nocknames.com) 
 ```
 grpcurl -import-path protos -proto nockchain.proto --max-time 120  \
 -d '{"pubkey": "3XDSQxCvP3HVn1Q9geS7T1WBGqxAAJoWfEfSuhNQLhHvYVxyX5xJtKRLhbve2MUuX1LjowfCdM8iPo1sF14VV7Y4kGm1DqP1fCnKAViD1JecQukTSufVkcGVVTeHdfDvDs1u"}' \
