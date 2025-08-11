@@ -78,9 +78,9 @@ impl Page {
             "tx-ids" => Ok(&self.tx_ids),
             "coinbase" => Ok(&self.coinbase),
             "timestamp" => Ok(&self.timestamp),
-            "epoch-counter" => Ok(&self.epoch_counter),
+            "epoch_counter" => Ok(&self.epoch_counter),
             "target" => Ok(&self.target),
-            "accumulated-work" => Ok(&self.accumulated_work),
+            "accumulated_work" => Ok(&self.accumulated_work),
             "height" => Ok(&self.height),
             //"msg" => Ok(&self.msg),
             _ => {
