@@ -3,7 +3,9 @@ syntax = "proto3";
 package nockchain;
 
 service NockchainService {
-  rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse) {}
+  rpc GetBlockByHeight(GetBlockByHeightRequest) returns (GetBlockByHeightResponse) {}
+  rpc GetBlockByDigest(GetBlockByDigestRequest) returns (GetBlockByDigestResponse) {}
 }
 
 message GetBalanceRequest {
@@ -12,4 +14,33 @@ message GetBalanceRequest {
 
 message GetBalanceResponse {
   double balance = 1;
+}
+
+message GetBlockByHeightRequest {
+  uint64 height = 1;
+}
+
+message GetBlockByHeightResponse {
+  Block block = 1;
+}
+
+message GetBlockByDigestRequest {
+  string digest = 1;
+}
+
+message GetBlockByDigestResponse {
+  Block block = 1;
+}
+
+message Block {
+  string digest = 1;         // Jammed bytes as hex
+  //string pow = 2;           // Jammed bytes as hex
+  string parent = 3;        // Jammed bytes as hex
+  string tx_ids = 4;        // Jammed bytes as hex
+  string coinbase = 5;      // Jammed bytes as hex
+  string timestamp = 6;     // Decimal string (@ud)
+  string epoch_counter = 7; // Decimal string (@ud)
+  string target = 8;        // Jammed bytes as hex
+  string accumulated_work = 9; // Jammed bytes as hex
+  string height = 10;       // Decimal string (@ud)
 }

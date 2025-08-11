@@ -13,6 +13,10 @@ env_logger = "0.10"
 log = "0.4"
 regex = "1.9"
 dotenvy = "0.15"
+nockvm = { path = "../nockchain/crates/nockvm/rust/nockvm" }
+nockapp = { path = "../nockchain/crates/nockapp" }
+hex = "0.4.3"
+rocksdb = "0.24.0"
 
 [build-dependencies]
 tonic-build = "0.12"
