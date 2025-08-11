@@ -130,7 +130,7 @@ impl Page {
         let mut offset = 0;
         let mut nouns = Vec::with_capacity(10);
 
-        for _ in 0..10 {
+        for _ in 0..9 {
             if offset + 4 > bytes.len() {
                 return Err(IndexerError::InvalidData("Incomplete data".to_string()));
             }
@@ -144,21 +144,21 @@ impl Page {
             offset += len;
         }
 
-        if nouns.len() != 10 {
+        if nouns.len() != 9 {
             return Err(IndexerError::InvalidData("Wrong number of fields".to_string()));
         }
 
         Ok(Some(Page {
             digest: nouns[0],
             //pow: nouns[1],
-            parent: nouns[2],
-            tx_ids: nouns[3],
-            coinbase: nouns[4],
-            timestamp: nouns[5],
-            epoch_counter: nouns[6],
-            target: nouns[7],
-            accumulated_work: nouns[8],
-            height: nouns[9],
+            parent: nouns[1],
+            tx_ids: nouns[2],
+            coinbase: nouns[3],
+            timestamp: nouns[4],
+            epoch_counter: nouns[5],
+            target: nouns[6],
+            accumulated_work: nouns[7],
+            height: nouns[8],
         }))
     }
 
